@@ -135,7 +135,13 @@ for k in range(50):
     # asset_options.replace_cylinder_with_capsule = True
     asset_options.override_inertia = False
 
-    
+    asset_options.density = 0.001
+    asset_options.angular_damping = 0.0
+    asset_options.linear_damping = 0.0
+    asset_options.armature = 0.0
+    asset_options.thickness = 0.01
+    asset_options.disable_gravity = False
+
     print("Loading asset '%s' from '%s'" % (asset_file, asset_root))
     asset = gym.load_asset(sim, asset_root, asset_file, asset_options)
 
@@ -168,6 +174,12 @@ for k in range(50):
     has_limits = dof_props['hasLimits']
     lower_limits = dof_props['lower']
     upper_limits = dof_props['upper']
+
+    # limits = np.column_stack((lower_limits,upper_limits))
+    # print("limits=",repr(limits))
+    # print("lower_limits=",repr(lower_limits))
+    # print("upper_limits=",repr(upper_limits))
+    # exit()
 
     # Print DOF properties
     for i in range(num_dofs):
@@ -230,10 +242,24 @@ for k in range(50):
         # set default DOF positions
         gym.set_actor_dof_states(env, actor_handle, dof_states, gymapi.STATE_ALL)
 
+    #-------------------
     rigid_body_names =  gym.get_actor_rigid_body_names(env,actor_handle)
     rigid_body_properties = gym.get_actor_rigid_body_properties(env,actor_handle)
     rigid_body_masses = [p.mass for p in rigid_body_properties]
     rigid_body_inertias = [p.inertia for p in rigid_body_properties]
+
+    total_mass = np.sum(rigid_body_masses)
+    for name,mass in zip(rigid_body_names,rigid_body_masses):
+        print(f"{name:20s},{mass:.5f}")
+    print(f"total mass: {total_mass} kg")
+
+    for name,i in zip(rigid_body_names,rigid_body_inertias):
+        print(f"{name:20s},{i.x.x:<+8.4e},{i.x.y:<+8.4e},{i.x.z:<+8.4e},{i.y.y:<+8.4e},{i.y.z:<+8.4e},{i.z.z:<+8.4e}")
+    # #-------------------
+    # gym.destroy_viewer(viewer)
+    # gym.destroy_sim(sim)
+    # exit()
+    # #-------------------
 
     # initialize animation state
     anim_state = ANIM_SEEK_LOWER
@@ -244,7 +270,7 @@ for k in range(50):
     # subscribe to keyboard events
     gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_F, "freeze")
     gym.subscribe_viewer_keyboard_event(viewer, gymapi.KEY_R, "reset")
-    
+
     init = False
     freeze = True
     while not gym.query_viewer_has_closed(viewer):
@@ -293,7 +319,7 @@ for k in range(50):
         for i in range(num_envs):
             if not freeze:
                 gym.set_actor_dof_states(envs[i], actor_handles[i], dof_states, gymapi.STATE_POS)
-        
+
             if args.show_axis:
                 # get the DOF frame (origin and axis)
                 dof_handle = gym.get_actor_dof_handle(envs[i], actor_handles[i], current_dof)
